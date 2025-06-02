@@ -91,6 +91,12 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages]); // Runs every time messages change
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
       <div className="max-w-4xl w-full bg-white p-6 rounded-xl shadow-xl flex gap-4">
@@ -109,7 +115,7 @@ export default function Home() {
           </h1>
           <div
             ref={chatRef}
-            className="flex-1 overflow-y-auto bg-gray-50 p-4 rounded-lg border h-[400px] space-y-4 scroll-auto"
+            className="h-[400px] overflow-y-auto bg-gray-50 p-4 rounded-lg border space-y-4"
           >
             {messages.map((msg, i) => (
               <div
