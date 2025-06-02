@@ -98,9 +98,9 @@ export default function Home() {
   }, [messages]); // Runs every time messages change
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
-      <div className="max-w-4xl w-full bg-white p-6 rounded-xl shadow-xl flex gap-4">
-        <div className="w-48 h-60 overflow-hidden rounded-lg shadow shrink-0 bg-black mt-12">
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center md:p-4">
+      <div className="max-w-4xl w-full bg-white p-4 sm:p-6 rounded-xl shadow-xl flex flex-col md:flex-row gap-4 flex-1">
+        <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-50 md:h-50 mx-auto md:mx-0 md:mt-12 overflow-hidden rounded-lg shadow bg-black">
           <video
             id="avatarVideo"
             src="/doctor-avatar.mp4"
@@ -109,18 +109,18 @@ export default function Home() {
             className="w-full h-full object-cover"
           />
         </div>
-        <div className="flex-1 flex flex-col">
-          <h1 className="text-2xl font-bold text-blue-600 mb-4 text-center">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <h1 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 text-center">
             AI Doctor - हेल्थ सहायक
           </h1>
           <div
             ref={chatRef}
-            className="h-[400px] overflow-y-auto bg-gray-50 p-4 rounded-lg border space-y-4"
+            className="min-h-[300px] max-h-[400px] overflow-y-auto bg-gray-50 p-4 rounded-lg border space-y-4 flex flex-col"
           >
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`p-3 rounded-xl max-w-[75%] whitespace-pre-wrap ${
+                className={`p-3 rounded-xl max-w-[85%] sm:max-w-[75%] whitespace-pre-wrap ${
                   msg.role === "user"
                     ? "bg-blue-100 self-end ml-auto"
                     : "bg-green-100 self-start mr-auto"
@@ -130,7 +130,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <div className="flex mt-4 space-x-2">
+          <div className="flex flex-col sm:flex-row mt-4 space-y-2 sm:space-y-0 sm:space-x-2">
             <input
               type="text"
               value={input}
