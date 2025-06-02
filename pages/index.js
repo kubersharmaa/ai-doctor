@@ -1,115 +1,161 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { useState, useRef, useEffect } from "react";
 
 export default function Home() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [recognizing, setRecognizing] = useState(false);
+  const recognitionRef = useRef(null);
+  const chatRef = useRef(null);
+  const messagesRef = useRef([]); // for reliable access to latest messages
+
+  // MAIN sendMessage function
+  const sendMessage = async (text) => {
+    if (!text) return;
+    setInput("");
+
+    // Add user + loading message
+    const newMessages = [
+      ...messagesRef.current,
+      { role: "user", text },
+      { role: "assistant", text: "⏳ जवाब तैयार हो रहा है..." },
+    ];
+    setMessages(newMessages);
+
+    // Get last 6 from localStorage for context
+    const saved = JSON.parse(localStorage.getItem("chatHistory")) || [];
+    const updatedHistory = [...saved, { role: "user", text }];
+    const trimmedHistory = updatedHistory.slice(-6);
+
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, history: trimmedHistory }),
+    });
+
+    const data = await res.json();
+
+    // Replace loading with actual reply
+    setMessages((prev) =>
+      prev
+        .filter((m) => m.text !== "⏳ जवाब तैयार हो रहा है...")
+        .concat({ role: "assistant", text: data.reply })
+    );
+
+    speakText(data.reply);
+  };
+
+  const speakText = (text) => {
+    const video = document.getElementById("avatarVideo");
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "hi-IN";
+    utterance.rate = 0.95;
+    video.play();
+    utterance.onend = () => video.pause();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const initSpeech = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Voice input not supported.");
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "hi-IN";
+    recognition.onstart = () => setRecognizing(true);
+    recognition.onend = () => setRecognizing(false);
+    recognition.onerror = () => setRecognizing(false);
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(transcript);
+      sendMessage(transcript);
+    };
+
+    recognitionRef.current = recognition;
+  };
+
+  useEffect(() => {
+    // Save to localStorage on every messages change
+    localStorage.setItem("chatHistory", JSON.stringify(messages));
+    messagesRef.current = messages; // keep ref updated
+  }, [messages]);
+
+  useEffect(() => {
+    initSpeech(); // initialize speech
+
+    // Load chat history from localStorage if available
+    const savedMessages = localStorage.getItem("chatHistory");
+    if (savedMessages) {
+      setMessages(JSON.parse(savedMessages));
+    } else {
+      setMessages([{ role: "assistant", text: "⏳ जवाब तैयार हो रहा है..." }]);
+    }
+  }, []);
+
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              pages/index.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
+      <div className="max-w-4xl w-full bg-white p-6 rounded-xl shadow-xl flex gap-4">
+        <div className="w-48 h-60 overflow-hidden rounded-lg shadow shrink-0 bg-black mt-12">
+          <video
+            id="avatarVideo"
+            src="/doctor-avatar.mp4"
+            muted
+            loop
+            className="w-full h-full object-cover"
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        <div className="flex-1 flex flex-col">
+          <h1 className="text-2xl font-bold text-blue-600 mb-4 text-center">
+            AI Doctor - हेल्थ सहायक
+          </h1>
+          <div
+            ref={chatRef}
+            className="flex-1 overflow-y-auto bg-gray-50 p-4 rounded-lg border h-[400px] space-y-4 scroll-auto"
+          >
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-xl max-w-[75%] whitespace-pre-wrap ${
+                  msg.role === "user"
+                    ? "bg-blue-100 self-end ml-auto"
+                    : "bg-green-100 self-start mr-auto"
+                }`}
+              >
+                {msg.text}
+              </div>
+            ))}
+          </div>
+          <div className="flex mt-4 space-x-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="अपना सवाल पूछें..."
+              className="flex-1 border border-gray-300 rounded px-4 py-2"
+            />
+            <button
+              onClick={() => recognitionRef.current?.start()}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+            >
+              {recognizing ? "🎙️..." : "🎤"}
+            </button>
+            <button
+              onClick={() => sendMessage(input)}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Send
+            </button>
+            <button
+              onClick={() => {
+                setMessages([]);
+                localStorage.removeItem("chatHistory");
+              }}
+              className="bg-gray-300 text-gray-700 px-3 py-2 rounded hover:bg-gray-400"
+            >
+              🗑️ Clear
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
