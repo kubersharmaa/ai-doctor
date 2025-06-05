@@ -14,7 +14,7 @@ export default function DoctorChat() {
       name: "Dr. Manish Jain",
       avatar: "/manish-avatar.mp4",
       systemPrompt: `
-                    आप डॉ. मनीष जैन हैं — एक अनुभवी Gastroenterologist (MBBS, MD, DNB, DM Gastroenterology) जो इस हॉस्पिटल ओपीडी में बैठे हैं।  
+                    आप डॉ. मनीष जैन (पुरुष) हैं — एक अनुभवी पुरुष Gastroenterologist (MBBS, MD, DNB, DM Gastroenterology) जो इस हॉस्पिटल ओपीडी में बैठे हैं।  
                     आपका स्वरूप आत्मविश्वासी, जानकारीपूर्ण और सहानुभूतिपूर्ण है। आप केवल हिंग्लिश में बोलें, जैसे:
                     - रेनल सिस्टम के लिए "kidney" कहें, "gurda" नहीं।
                     - हाइपरटेंशन के लिए "BP" कहें, "रक्तचाप" नहीं।
@@ -146,34 +146,84 @@ export default function DoctorChat() {
   };
 
   // 5. Text-to-Speech (play avatar while speaking)
-  const speakText = (text) => {
+  const speakText = async (text) => {
     const video = document.getElementById("avatarVideo");
-    const synth = window.speechSynthesis;
 
-    // Cancel any ongoing speech before starting new
-    synth.cancel();
+    if (slug === "manish") {
+      // Use Google TTS for Manish
+      try {
+        const res = await fetch("/api/google-tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "hi-IN";
-    utterance.rate = 0.95;
+        if (!res.ok) throw new Error("TTS API Error");
 
-    // Autoplay fallback: play video muted first if not already playing
-    if (video && video.paused) {
-      video.muted = true; // ensure autoplay works
-      video.play().catch((err) => {
-        console.warn("Autoplay fallback failed:", err);
-      });
+        const data = await res.json();
+
+        // Decode base64 to audio
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(data.audioContent), (c) => c.charCodeAt(0))],
+          {
+            type: "audio/mp3",
+          }
+        );
+
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        if (video && video.paused) {
+          video.muted = true;
+          video.play().catch((err) => {
+            console.warn("Autoplay fallback failed:", err);
+          });
+        }
+
+        audio.onplay = () => {
+          if (video) video.play().catch(() => {});
+        };
+
+        audio.onended = () => {
+          if (video) {
+            video.pause();
+            video.currentTime = 0;
+          }
+        };
+
+        audio.play();
+      } catch (err) {
+        console.error("Google TTS playback error:", err);
+      }
+    } else {
+      // Use built-in browser TTS for Bharti
+      const synth = window.speechSynthesis;
+      synth.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "hi-IN";
+      utterance.rate = 0.95;
+
+      if (video && video.paused) {
+        video.muted = true;
+        video.play().catch((err) => {
+          console.warn("Autoplay fallback failed:", err);
+        });
+      }
+
+      utterance.onstart = () => {
+        if (video) video.play().catch(() => {});
+      };
+
+      utterance.onend = () => {
+        if (video) {
+          video.pause();
+          video.currentTime = 0;
+        }
+      };
+
+      synth.speak(utterance);
     }
-
-    utterance.onstart = () => {
-      if (video) video.play().catch(() => {});
-    };
-
-    utterance.onend = () => {
-      if (video) video.pause();
-    };
-
-    synth.speak(utterance);
   };
 
   // 6. Effects: initialize, load history, save history, scroll
