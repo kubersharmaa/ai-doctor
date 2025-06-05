@@ -1,166 +1,49 @@
-import { useState, useRef, useEffect } from "react";
+// pages/index.js
+import Link from "next/link";
 
 export default function Home() {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [recognizing, setRecognizing] = useState(false);
-  const recognitionRef = useRef(null);
-  const chatRef = useRef(null);
-  const messagesRef = useRef([]); // for reliable access to latest messages
-
-  // MAIN sendMessage function
-  const sendMessage = async (text) => {
-    if (!text) return;
-    setInput("");
-
-    // Add user + loading message
-    const newMessages = [
-      ...messagesRef.current,
-      { role: "user", text },
-      { role: "assistant", text: "⏳ जवाब तैयार हो रहा है..." },
-    ];
-    setMessages(newMessages);
-
-    // Get last 6 from localStorage for context
-    const saved = JSON.parse(localStorage.getItem("chatHistory")) || [];
-    const updatedHistory = [...saved, { role: "user", text }];
-    const trimmedHistory = updatedHistory.slice(-6);
-
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, history: trimmedHistory }),
-    });
-
-    const data = await res.json();
-
-    // Replace loading with actual reply
-    setMessages((prev) =>
-      prev
-        .filter((m) => m.text !== "⏳ जवाब तैयार हो रहा है...")
-        .concat({ role: "assistant", text: data.reply })
-    );
-
-    speakText(data.reply);
-  };
-
-  const speakText = (text) => {
-    const video = document.getElementById("avatarVideo");
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "hi-IN";
-    utterance.rate = 0.95;
-    video.play();
-    utterance.onend = () => video.pause();
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const initSpeech = () => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Voice input not supported.");
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "hi-IN";
-    recognition.onstart = () => setRecognizing(true);
-    recognition.onend = () => setRecognizing(false);
-    recognition.onerror = () => setRecognizing(false);
-    recognition.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setInput(transcript);
-      sendMessage(transcript);
-    };
-
-    recognitionRef.current = recognition;
-  };
-
-  useEffect(() => {
-    // Save to localStorage on every messages change
-    localStorage.setItem("chatHistory", JSON.stringify(messages));
-    messagesRef.current = messages; // keep ref updated
-  }, [messages]);
-
-  useEffect(() => {
-    initSpeech(); // initialize speech
-
-    // Load chat history from localStorage if available
-    const savedMessages = localStorage.getItem("chatHistory");
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
-    } else {
-      setMessages([{ role: "assistant", text: "⏳ जवाब तैयार हो रहा है..." }]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
-  }, [messages]); // Runs every time messages change
-
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center md:p-4">
-      <div className="max-w-4xl w-full bg-white p-4 sm:p-6 rounded-xl shadow-xl flex flex-col md:flex-row gap-4 flex-1">
-        <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-50 md:h-50 mx-auto md:mx-0 md:mt-12 overflow-hidden rounded-lg shadow bg-black">
-          <video
-            id="avatarVideo"
-            src="/doctor-avatar.mp4"
-            muted
-            loop
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <h1 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 text-center">
-            AI Doctor - हेल्थ सहायक
-          </h1>
-          <div
-            ref={chatRef}
-            className="min-h-[300px] max-h-[400px] overflow-y-auto bg-gray-50 p-4 rounded-lg border space-y-4 flex flex-col"
-          >
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`p-3 rounded-xl max-w-[85%] sm:max-w-[75%] whitespace-pre-wrap ${
-                  msg.role === "user"
-                    ? "bg-blue-100 self-end ml-auto"
-                    : "bg-green-100 self-start mr-auto"
-                }`}
-              >
-                {msg.text}
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col sm:flex-row mt-4 space-y-2 sm:space-y-0 sm:space-x-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="अपना सवाल पूछें..."
-              className="flex-1 border border-gray-300 rounded px-4 py-2"
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+      <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">
+        Select an AI Doctor
+      </h1>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl">
+        {/* Dr. Manish Jain Card */}
+        <Link href="/doctor/manish">
+          <div className="cursor-pointer bg-white rounded-xl shadow-lg hover:shadow-2xl transition p-6 flex flex-col items-center">
+            <video
+              src="/manish-avatar.mp4"
+              autoPlay
+              muted
+              loop
+              className="w-32 h-32 object-cover rounded-full mb-4 shadow-sm"
             />
-            <button
-              onClick={() => recognitionRef.current?.start()}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              {recognizing ? "🎙️..." : "🎤"}
-            </button>
-            <button
-              onClick={() => sendMessage(input)}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Send
-            </button>
-            <button
-              onClick={() => {
-                setMessages([]);
-                localStorage.removeItem("chatHistory");
-              }}
-              className="bg-gray-300 text-gray-700 px-3 py-2 rounded hover:bg-gray-400"
-            >
-              🗑️ Clear
-            </button>
+            <h2 className="text-2xl font-semibold mb-2">Dr. Manish Jain</h2>
+            <p className="text-gray-600 text-center">
+              Gastroenterologist
+              <br />
+              MBBS, MD, DNB, DM Gastroenterology
+            </p>
           </div>
-        </div>
+        </Link>
+
+        {/* Dr. Bharti Card */}
+        <Link href="/doctor/bharti">
+          <div className="cursor-pointer bg-white rounded-xl shadow-lg hover:shadow-2xl transition p-6 flex flex-col items-center">
+            <video
+              src="/doctor-avatar.mp4"
+              autoPlay
+              muted
+              loop
+              className="w-32 h-32 object-cover rounded-full mb-4 shadow-sm"
+            />
+            <h2 className="text-2xl font-semibold mb-2">Dr. Bharti</h2>
+            <p className="text-gray-600 text-center">
+              General Healthcare Practitioner
+            </p>
+          </div>
+        </Link>
       </div>
     </div>
   );
